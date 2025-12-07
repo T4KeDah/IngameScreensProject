@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /screenshots/{docId} {
+      allow read: if true;
+      // Allow create only for authenticated users and require uploaderId matches auth uid
+      allow create: if request.auth != null
+        && request.resource.data.uploaderId == request.auth.uid
+        && request.resource.data.imageURL is string
+        && request.resource.data.createdAt != null;
+
+      // Updates: Admins can update anything. Non-admins can only edit their own doc but cannot change 'approved' or 'featured'.
+      allow update: if request.auth != null && (
+        request.auth.token.admin == true || (
+          request.auth.uid == resource.data.uploaderId
+          && request.resource.data.approved == resource.data.approved
+          && request.resource.data.featured == resource.data.featured
+        )
+      );
+
+      allow delete: if request.auth.token.admin == true;
+    }
+
+    match /weeklyWinners/{doc} {
+      allow read: if true;
+      allow write: if request.auth.token.admin == true;
+    }
+  }
+}
